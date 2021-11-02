@@ -1,0 +1,16 @@
+name: dart_twitch
+description: A library that interfaces Twitch to Dart. Developed to be primarily used for Chatsen/Twitch bots.
+
+environment:
+  sdk: '>=2.12.0 <3.0.0'
+
+dependencies:
+  path: ^1.7.0
+  http: any
+  web_socket_channel: any
+  bloc: any
+  equatable: any
+  collection: ^1.15.0
+
+dev_dependencies:
+  pedantic: ^1.9.0
