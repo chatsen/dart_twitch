@@ -51,6 +51,12 @@ class Channel extends Bloc<ChannelEvent, ChannelState> {
     );
   }
 
+  void send(String message, {bool action = false}) {
+    if (!(state is ChannelConnected)) return;
+    var realState = state as ChannelConnected;
+    realState.transmitter.send('PRIVMSG $name :${action ? '/me ' : ''}$message');
+  }
+
   @override
   Stream<ChannelState> mapEventToState(ChannelEvent event) async* {
     suspensionTimer?.cancel();
@@ -69,11 +75,11 @@ class Channel extends Bloc<ChannelEvent, ChannelState> {
       yield ChannelBanned(receiver: realState.receiver, transmitter: realState.transmitter);
     } else if (event is ChannelTimeout && state is ChannelStateWithConnection) {
       var realState = state as ChannelStateWithConnection;
-      yield ChannelBanned(receiver: realState.receiver, transmitter: realState.transmitter);
+      yield ChannelBanned(receiver: realState.receiver, transmitter: realState.transmitter, unbanTime: DateTime.now().add(event.duration));
       suspensionTimer = Timer(event.duration, () {
         emit(realState);
+        // yield ChannelConnected(receiver: realState.receiver, transmitter: realState.transmitter);
       });
-      yield ChannelConnected(receiver: realState.receiver, transmitter: realState.transmitter);
     } else if (event is ChannelSuspend && state is ChannelStateWithConnection) {
       var realState = state as ChannelStateWithConnection;
       yield ChannelSuspended(receiver: realState.receiver, transmitter: realState.transmitter);

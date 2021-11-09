@@ -40,8 +40,11 @@ class ChannelSuspended extends ChannelStateWithConnection {
 }
 
 class ChannelBanned extends ChannelStateWithConnection {
+  final DateTime? unbanTime;
+
   ChannelBanned({
     required Connection receiver,
     required Connection transmitter,
+    this.unbanTime,
   }) : super(receiver, transmitter);
 }

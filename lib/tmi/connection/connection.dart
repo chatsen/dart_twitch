@@ -118,10 +118,16 @@ class Connection extends Bloc<ConnectionEvent, ConnectionState> {
             var channel = client.channels.state.firstWhere((channel) => channel.name == channelName);
             channel.add(ChannelSuspend());
           } catch (e) {}
+        } else if (ircMessage.tags['msg-id'] == 'msg_banned') {
+          try {
+            var channelName = ircMessage.parameters[0];
+            var channel = client.channels.state.firstWhere((channel) => channel.name == channelName);
+            channel.add(ChannelBan());
+          } catch (e) {}
         } else {
           try {
             var channelName = ircMessage.parameters[0];
-            var channel = client.channels.state.firstWhere((channel) => channel.state is ChannelStateWithConnection && (channel.state as ChannelStateWithConnection).receiver == this && channel.name == channelName);
+            var channel = client.channels.state.firstWhere((channel) => channel.state is ChannelStateWithConnection && ((channel.state as ChannelStateWithConnection).receiver == this || (channel.state as ChannelStateWithConnection).transmitter == this) && channel.name == channelName);
 
             channel.messages.add(
               NoticeMessage(
@@ -136,7 +142,7 @@ class Connection extends Bloc<ConnectionEvent, ConnectionState> {
       case 'JOIN':
         try {
           var channelName = ircMessage.parameters[0];
-          var channel = client.channels.state.firstWhere((channel) => channel.state is ChannelStateWithConnection && (channel.state as ChannelStateWithConnection).receiver == this && channel.name == channelName);
+          var channel = client.channels.state.firstWhere((channel) => channel.state is ChannelStateWithConnection && ((channel.state as ChannelStateWithConnection).receiver == this || (channel.state as ChannelStateWithConnection).transmitter == this) && channel.name == channelName);
 
           var credentials = client.credentials;
           var login = ircMessage.prefix.split('!').first.toLowerCase();
@@ -147,7 +153,7 @@ class Connection extends Bloc<ConnectionEvent, ConnectionState> {
       case 'PART':
         try {
           var channelName = ircMessage.parameters[0];
-          var channel = client.channels.state.firstWhere((channel) => channel.state is ChannelStateWithConnection && (channel.state as ChannelStateWithConnection).receiver == this && channel.name == channelName);
+          var channel = client.channels.state.firstWhere((channel) => channel.state is ChannelStateWithConnection && ((channel.state as ChannelStateWithConnection).receiver == this || (channel.state as ChannelStateWithConnection).transmitter == this) && channel.name == channelName);
 
           var credentials = client.credentials;
           var login = ircMessage.prefix.split('!').first.toLowerCase();
@@ -158,7 +164,7 @@ class Connection extends Bloc<ConnectionEvent, ConnectionState> {
       case 'PRIVMSG':
         try {
           var channelName = ircMessage.parameters[0];
-          var channel = client.channels.state.firstWhere((channel) => channel.state is ChannelStateWithConnection && (channel.state as ChannelStateWithConnection).receiver == this && channel.name == channelName);
+          var channel = client.channels.state.firstWhere((channel) => channel.state is ChannelStateWithConnection && ((channel.state as ChannelStateWithConnection).receiver == this || (channel.state as ChannelStateWithConnection).transmitter == this) && channel.name == channelName);
 
           var message = Message(
             id: ircMessage.tags['id'],
@@ -182,7 +188,7 @@ class Connection extends Bloc<ConnectionEvent, ConnectionState> {
       case 'CLEARCHAT':
         try {
           var channelName = ircMessage.parameters[0];
-          var channel = client.channels.state.firstWhere((channel) => channel.state is ChannelStateWithConnection && (channel.state as ChannelStateWithConnection).receiver == this && channel.name == channelName);
+          var channel = client.channels.state.firstWhere((channel) => channel.state is ChannelStateWithConnection && ((channel.state as ChannelStateWithConnection).receiver == this || (channel.state as ChannelStateWithConnection).transmitter == this) && channel.name == channelName);
           var duration = ircMessage.tags['ban-duration'] == null ? null : Duration(seconds: int.tryParse(ircMessage.tags['ban-duration']) ?? 0);
 
           channel.messages.add(
@@ -200,6 +206,15 @@ class Connection extends Bloc<ConnectionEvent, ConnectionState> {
               channel: channel,
             ),
           );
+
+          if (channel.state is ChannelConnected && duration != null) {
+            var realState = (channel.state as ChannelConnected);
+            var transmitter = (realState.transmitter.state as ConnectionConnected);
+
+            if (transmitter.credentials.id == ircMessage.tags['target-user-id']) {
+              channel.add(ChannelTimeout(duration));
+            }
+          }
         } catch (e) {}
         break;
       case 'USERNOTICE':
@@ -216,9 +231,9 @@ class Connection extends Bloc<ConnectionEvent, ConnectionState> {
           // Sub with message 2:
           // @badge-info=;badges=glhf-pledge/1;color=#FF1493;display-name=splizhh;emotes=;flags=;id=92a97eba-d684-406d-8ca3-21e95c1cc874;login=splizhh;mod=0;msg-id=resub;msg-param-cumulative-months=6;msg-param-months=0;msg-param-multimonth-duration=0;msg-param-multimonth-tenure=0;msg-param-should-share-streak=1;msg-param-streak-months=5;msg-param-sub-plan-name=Channel\sSubscription\s(xqcow);msg-param-sub-plan=Prime;msg-param-was-gifted=false;room-id=71092938;subscriber=1;system-msg=splizhh\ssubscribed\swith\sPrime.\sThey've\ssubscribed\sfor\s6\smonths,\scurrently\son\sa\s5\smonth\sstreak!;tmi-sent-ts=1627742216686;user-id=230654107;user-type= :tmi.twitch.tv USERNOTICE #xqcow :pog
 
-          print('\x1b[32m>: ${ircMessage.command}: \x1b[37m$event\x1b[37m');
+          // print('\x1b[32m>: ${ircMessage.command}: \x1b[37m$event\x1b[37m');
           var channelName = ircMessage.parameters[0];
-          var channel = client.channels.state.firstWhere((channel) => channel.state is ChannelStateWithConnection && (channel.state as ChannelStateWithConnection).receiver == this && channel.name == channelName);
+          var channel = client.channels.state.firstWhere((channel) => channel.state is ChannelStateWithConnection && ((channel.state as ChannelStateWithConnection).receiver == this || (channel.state as ChannelStateWithConnection).transmitter == this) && channel.name == channelName);
 
           channel.messages.add(
             SubMessage(
@@ -241,7 +256,7 @@ class Connection extends Bloc<ConnectionEvent, ConnectionState> {
       case 'CLEARMSG':
         try {
           var channelName = ircMessage.parameters[0];
-          var channel = client.channels.state.firstWhere((channel) => channel.state is ChannelStateWithConnection && (channel.state as ChannelStateWithConnection).receiver == this && channel.name == channelName);
+          var channel = client.channels.state.firstWhere((channel) => channel.state is ChannelStateWithConnection && ((channel.state as ChannelStateWithConnection).receiver == this || (channel.state as ChannelStateWithConnection).transmitter == this) && channel.name == channelName);
 
           channel.messages.add(
             Message(
